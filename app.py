@@ -1,6 +1,9 @@
 import streamlit as st
 import pickle
 import numpy as np
+import asyncio
+import websockets
+import json
 
 model = pickle.load(open('EE_model.pkl', 'rb'))
 
@@ -39,3 +42,19 @@ def main():
 
 if _name_ == '_main_':
     main()
+
+async def fetch_data():
+    uri = "ws://localhost:8080"  # WebSocket server URL
+    async with websockets.connect(uri) as websocket:
+        while True:
+            data = await websocket.recv()
+            data = json.loads(data)  # Parse the JSON data
+            st.write(f"EEG Value: {data['eegValue']} at {data['timestamp']}")
+
+# Run the WebSocket connection in Streamlit
+async def run_websocket():
+    await fetch_data()
+
+# Run the asynchronous function using Streamlit's asyncio support
+st.write("Connecting to WebSocket for real-time EEG data...")
+asyncio.run(run_websocket())
