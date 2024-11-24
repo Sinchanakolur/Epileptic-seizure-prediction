@@ -1,71 +1,88 @@
 import streamlit as st
 import pickle
 import numpy as np
-import asyncio
 import websockets
 import json
+import asyncio
 
 # Load the trained model
 model = pickle.load(open('EE_model.pkl', 'rb'))
 
-# Function for seizure prediction
 def risk_potability_prediction(input_data):
     """
-    Predicts if a patient is experiencing an epileptic seizure.
+    Predicts if the patient is affected by an epileptic seizure based on EEG sensor data.
     """
     input_as_array = np.array(input_data).reshape(1, -1)  # Reshape to match model input
     prediction = model.predict(input_as_array)[0]  # Predict the outcome
     return prediction
 
-# Async function to fetch real-time EEG data
-async def fetch_data():
+async def fetch_data_continuous():
     """
-    Connects to the WebSocket server and receives real-time EEG data.
+    Continuously fetch data from WebSocket and update session state.
     """
-    uri = "ws://localhost:8080"  # WebSocket server URL
+    uri = "ws://localhost:8000"
     try:
         async with websockets.connect(uri) as websocket:
-            while True:
-                data = await websocket.recv()  # Receive data from WebSocket
-                parsed_data = json.loads(data)  # Parse the JSON data
-                st.write(f"EEG Value: {parsed_data['eegValue']} at {parsed_data['timestamp']}")
-                await asyncio.sleep(1)  # Sleep for 1 second before receiving the next data
+            while st.session_state.fetching_data:
+                data = await websocket.recv()
+                data = json.loads(data)  # Parse the JSON data
+                # Update session state EEG data if new data is fetched
+                for key in st.session_state.eeg_data.keys():
+                    st.session_state.eeg_data[key] = data.get(key, 0.0)
+                st.session_state.new_data_available = True
+                await asyncio.sleep(1)  # Prevent high-frequency requests
     except Exception as e:
-        st.error(f"Error occurred: {e}")
+        st.error(f"Error occurred while connecting to WebSocket: {e}")
 
-# Main function to handle Streamlit UI
 def main():
     """
-    Streamlit app for seizure prediction and real-time data monitoring.
+    Main function to run the Streamlit app with EEG seizure prediction and WebSocket connection.
     """
     # Streamlit page setup
-    st.set_page_config(page_title='EEG-Based Epileptic Seizure Prediction')
-    st.title('EEG-Based Epileptic Seizure Prediction')
-    st.write('This app predicts epileptic seizures based on EEG data.')
+    st.set_page_config(page_title='EEG - Based Epileptic Seizure Prediction')
+    st.title('EEG - Based Epileptic Seizure Prediction')
+    st.write('This app predicts whether a patient is experiencing an epileptic seizure based on EEG data.')
 
-    # Input fields for prediction
-    st.subheader('Seizure Prediction')
-    mar = st.number_input('# FP1-F7', format="%.7f", min_value=0.0, max_value=100.0, value=7.0, step=0.1)
-    deb = st.number_input('C3-P3', format="%.7f", min_value=0.0, value=50.0, step=1.0)
-    dis = st.number_input('P3-O1', format="%.7f", min_value=0.0, value=50.0, step=1.0)
-    gen = st.number_input('P4-O2', format="%.7f", min_value=-0.0000303, value=50.0, step=1.0)
-    crs = st.number_input('P7-O1', format="%.7f", min_value=0.0, max_value=1000.0, step=1.0)
-    gdp = st.number_input('P7-T7', format="%.7f", min_value=-0.0000303, value=50.0, step=1.0)
-    pqg = st.number_input('T8-P8-0', format="%.7f", min_value=0.0, value=50.0, step=1.0)
-    pqg1 = st.number_input('T8-P8-1', format="%.7f", min_value=0.0, value=50.0, step=1.0)
+    # Initialize session state for EEG data and prediction output if not already set
+    if 'eeg_data' not in st.session_state:
+        st.session_state.eeg_data = {
+            "# FP1-F7": 0.0, "C3-P3": 0.0, "P3-O1": 0.0, "P4-O2": 0.0,
+            "P7-O1": 0.0, "P7-T7": 0.0, "T8-P8-0": 0.0, "T8-P8-1": 0.0
+        }
+    if 'prediction' not in st.session_state:
+        st.session_state.prediction = ""
+    if 'fetching_data' not in st.session_state:
+        st.session_state.fetching_data = False
+    if 'new_data_available' not in st.session_state:
+        st.session_state.new_data_available = False
 
-    # Prediction button
+    # Buttons to start and stop fetching data
+    if st.button('Start Fetching Data'):
+        st.session_state.fetching_data = True
+        asyncio.run(fetch_data_continuous())
+
+    if st.button('Stop Fetching Data'):
+        st.session_state.fetching_data = False
+
+    # Predict button to run prediction on the fetched data
     if st.button('Predict'):
-        input_data = [mar, deb, dis, gen, crs, gdp, pqg, pqg1]
-        prediction = risk_potability_prediction(input_data)
-        if prediction == 0:
-            st.error('The Patient is affected by an Epileptic Seizure.')
-        else:
-            st.success('The Patient is not affected by an Epileptic Seizure.')
+        if st.session_state.new_data_available:
+            input_data = list(st.session_state.eeg_data.values())
+            prediction = risk_potability_prediction(input_data)
+            st.session_state.prediction = (
+                'The Patient is affected by an Epileptic Seizure.' if prediction == 0
+                else 'The Patient is not affected by an Epileptic Seizure.'
+            )
+            st.session_state.new_data_available = False
 
-    # Real-time EEG data monitoring
-    st.write("Connecting to WebSocket for real-time EEG data...")
-    asyncio.run(fetch_data())
+    # Display EEG values as adjustable input fields
+    st.subheader("Real-Time EEG Data (Adjustable)")
+    for key in st.session_state.eeg_data:
+        st.session_state.eeg_data[key] = st.number_input(key, value=st.session_state.eeg_data[key], format="%.7f")
+
+    # Show prediction result
+    st.subheader('Prediction Result')
+    st.write(st.session_state.prediction)
 
 if __name__ == '__main__':
     main()
