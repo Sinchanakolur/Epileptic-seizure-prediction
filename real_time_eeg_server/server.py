@@ -4,7 +4,7 @@ import json
 import pandas as pd
 
 # Path to the CHB-MIT preprocessed dataset
-DATASET_PATH = r'D:\simpledev\chbmit_preprocessed_data.csv'
+DATASET_PATH = 'https://drive.google.com/file/d/1Lf9Z8xfP3It-jOH4TBwsxanuayKvt79x/view?usp=sharing'
 
 # EEG Channels (ensure these match your dataset columns)
 CHANNELS = ["# FP1-F7", "C3-P3", "P3-O1", "P4-O2", "P7-O1", "P7-T7", "T8-P8-0", "T8-P8-1"]
@@ -14,7 +14,8 @@ def load_dataset(path):
     Load the EEG dataset and ensure it contains required channels.
     """
     try:
-        data = pd.read_csv(path)
+        data = pd.read_csv(DATASET_PATH)
+
         missing_channels = [channel for channel in CHANNELS if channel not in data.columns]
         if missing_channels:
             raise ValueError(f"Dataset is missing required channels: {missing_channels}")
