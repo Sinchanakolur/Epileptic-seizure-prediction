@@ -1,9 +1,19 @@
 import streamlit as st
 import pickle
 import numpy as np
+import requests
 import websockets
 import json
 import asyncio
+from pushbullet import Pushbullet
+
+# Initialize Pushbullet with your API key
+pb = Pushbullet("o.ZbUDfMVm338WSYIECcv88jX0EOx6vitE")  # Replace with your API key
+
+# Function to send notification using Pushbullet
+def send_notification(message):
+    push = pb.push_note("Seizure Alert", message)
+    print(push)
 
 # Load the trained model
 model = pickle.load(open('EE_model.pkl', 'rb'))
@@ -74,6 +84,12 @@ def main():
                 else 'The Patient is not affected by an Epileptic Seizure.'
             )
             st.session_state.new_data_available = False
+            
+            # Trigger notification if seizure is detected
+            if prediction == 0:  # 0 indicates seizure detected
+                send_notification("Seizure detected, please take action.")
+            else:
+                send_notification("Calm: No seizure detected, patient is stable.")
 
     # Display EEG values as adjustable input fields
     st.subheader("Real-Time EEG Data (Adjustable)")
@@ -84,8 +100,9 @@ def main():
     st.subheader('Prediction Result')
     st.write(st.session_state.prediction)
 
-if _name_ == '_main_':
-    main()
+if __name__ == '__main__':
+    main()
+
 
 
 
