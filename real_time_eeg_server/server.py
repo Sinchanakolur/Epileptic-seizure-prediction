@@ -6,19 +6,15 @@ import gdown
 import os
 
 # Define the Google Drive file ID (replace with your actual ID)
-DRIVE_FILE_ID = '1Lf9Z8xfP3It-jOH4TBwsxanuayKvt79x'  # This is the file ID in quotes
-
+DRIVE_FILE_ID = '1Lf9Z8xfP3It-jOH4TBwsxanuayKvt79x'
 LOCAL_PATH = 'datasets/chbmit_preprocessed_data.csv'
 os.makedirs(os.path.dirname(LOCAL_PATH), exist_ok=True)
-
 
 # Function to download the dataset from Google Drive if it doesn't already exist locally
 def download_dataset():
     if not os.path.exists(LOCAL_PATH):
         print("Dataset not found locally, downloading...")
-        # Download from Google Drive using the gdown libra1Lf9Z8xfP3Itry
         gdown.download(f'https://drive.google.com/uc?id={DRIVE_FILE_ID}', LOCAL_PATH, quiet=False)
-
         print("Dataset downloaded successfully.")
     else:
         print("Dataset already exists, skipping download.")
@@ -42,7 +38,7 @@ async def eeg_handler(websocket, path):
     try:
         for _, row in eeg_data.iterrows():
             # Prepare data to send by extracting only valid EEG channel values
-            eeg_values = {channel: row.get(channel, 0.0) for channel in CHANNELS}  # Default to 0 if missing
+            eeg_values = {channel: row.get(channel, 0.0) for channel in CHANNELS}
             eeg_values["timestamp"] = str(pd.Timestamp.now())
 
             # Send data as JSON
@@ -60,9 +56,13 @@ async def eeg_handler(websocket, path):
 
 async def main():
     try:
+        # Dynamically get host and port for deployment
+        host = os.getenv("HOST", "0.0.0.0")
+        port = int(os.getenv("PORT", 8000))
+
         # Start the WebSocket server
-        server = await websockets.serve(eeg_handler, "localhost", 8000)
-        print("WebSocket server started on ws://localhost:8000")
+        server = await websockets.serve(eeg_handler, host, port)
+        print(f"WebSocket server started on ws://{host}:{port}")
         await server.wait_closed()
     except Exception as e:
         print(f"Failed to start server: {e}")
