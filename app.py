@@ -1,29 +1,12 @@
-import streamlit as st # type: ignore
+import streamlit as st
 import pickle
-import numpy as np # type: ignore
-import requests
+import numpy as np
 import websockets
 import json
 import asyncio
 
 # Load the trained model
 model = pickle.load(open('EE_model.pkl', 'rb'))
-
-# Function to send notification using OneSignal
-def send_notification(message):
-    headers = {
-        'Authorization': 'zijwseio7edh5chwbu5eag275',  # Replace with your OneSignal API Key
-        'Content-Type': 'application/json'
-    }
-    payload = {
-        'app_id': 'a5a63134-f64b-4d50-aa9e-f3f232a20007',  # Replace with your OneSignal App ID
-        'included_segments': ['Subscribed Users'],
-        'data': {'message': message},
-        'headings': {'en': 'Seizure Alert'},
-        'contents': {'en': message}
-    }
-    response = requests.post('https://onesignal.com/api/v1/notifications', headers=headers, json=payload)
-    print(response.json())
 
 def risk_potability_prediction(input_data):
     """
@@ -91,10 +74,6 @@ def main():
                 else 'The Patient is not affected by an Epileptic Seizure.'
             )
             st.session_state.new_data_available = False
-            
-            # Trigger notification if seizure is detected
-            if prediction == 0:  # 0 indicates seizure detected
-                send_notification("Seizure detected, please take action.")
 
     # Display EEG values as adjustable input fields
     st.subheader("Real-Time EEG Data (Adjustable)")
@@ -105,8 +84,8 @@ def main():
     st.subheader('Prediction Result')
     st.write(st.session_state.prediction)
 
-if __name__ == '__main__':
-    main()
+if _name_ == '_main_':
+    main()
 
 
 
