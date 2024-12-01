@@ -22,7 +22,7 @@ async def fetch_data_continuous():
     """
     Continuously fetch data from WebSocket and update session state.
     """
-    uri = "ws://localhost:8000"  # Ensure this matches the WebSocket server
+    uri = "ws://106.51.46.129:8000"  # Ensure this matches the WebSocket server
     try:
         async with websockets.connect(uri) as websocket:
             while st.session_state.fetching_data:
