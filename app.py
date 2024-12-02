@@ -45,7 +45,7 @@ async def fetch_data_continuous():
                 st.session_state.new_data_available = True
 
                 # Wait for 10 seconds before fetching the next data
-                await asyncio.sleep(10)  # Adjust for 10-second interval
+                await asyncio.sleep(5)  # Adjust for 10-second interval
 
     except websockets.exceptions.ConnectionClosed as e:
         st.error(f"WebSocket connection closed unexpectedly: {e}")
