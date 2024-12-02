@@ -47,6 +47,12 @@ async def fetch_data_continuous():
                 # Wait for 10 seconds before fetching the next data
                 await asyncio.sleep(10)  # Adjust for 10-second interval
 
+    except websockets.exceptions.ConnectionClosed as e:
+        st.error(f"WebSocket connection closed unexpectedly: {e}")
+        # Retry connection (reconnect mechanism)
+        await asyncio.sleep(5)  # Wait a bit before retrying
+        await fetch_data_continuous()  # Retry connection
+
     except Exception as e:
         st.error(f"Error occurred while connecting to WebSocket: {e}")
 
