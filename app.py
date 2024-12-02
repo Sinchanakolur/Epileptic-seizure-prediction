@@ -26,11 +26,15 @@ async def fetch_data_continuous():
             while st.session_state.fetching_data:
                 data = await websocket.recv()
                 data = json.loads(data)  # Parse the JSON data
-                # Update session state EEG data if new data is fetched
+
+                # Update session state EEG data with the latest values
                 for key in st.session_state.eeg_data.keys():
                     st.session_state.eeg_data[key] = data.get(key, 0.0)
+
+                # Flag that new data is available
                 st.session_state.new_data_available = True
                 await asyncio.sleep(1)  # Prevent high-frequency requests
+
     except Exception as e:
         st.error(f"Error occurred while connecting to WebSocket: {e}")
 
@@ -56,10 +60,13 @@ def main():
     if 'new_data_available' not in st.session_state:
         st.session_state.new_data_available = False
 
-    # Buttons to start and stop fetching data
+    # Start and Stop buttons for fetching data
     if st.button('Start Fetching Data'):
-        st.session_state.fetching_data = True
-        asyncio.run(fetch_data_continuous())
+        if not st.session_state.fetching_data:
+            st.session_state.fetching_data = True
+            asyncio.run(fetch_data_continuous())
+        else:
+            st.warning("Already fetching data.")
 
     if st.button('Stop Fetching Data'):
         st.session_state.fetching_data = False
@@ -74,6 +81,8 @@ def main():
                 else 'The Patient is not affected by an Epileptic Seizure.'
             )
             st.session_state.new_data_available = False
+        else:
+            st.warning("No new data available. Please start fetching data.")
 
     # Display EEG values as adjustable input fields
     st.subheader("Real-Time EEG Data (Adjustable)")
@@ -86,3 +95,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
