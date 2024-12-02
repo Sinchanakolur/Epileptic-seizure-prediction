@@ -4,6 +4,8 @@ import numpy as np
 import websockets
 import json
 import asyncio
+from threading import Thread
+import time
 
 # Load the trained model
 model = pickle.load(open('EE_model.pkl', 'rb'))
@@ -18,7 +20,7 @@ def risk_potability_prediction(input_data):
 
 async def fetch_data_continuous():
     """
-    Continuously fetch data from WebSocket and update session state.
+    Continuously fetch data from WebSocket, update session state, and make predictions.
     """
     uri = "wss://167f-2401-4900-61bd-4a98-4c2-3a71-2634-8639.ngrok-free.app"
     try:
@@ -31,12 +33,28 @@ async def fetch_data_continuous():
                 for key in st.session_state.eeg_data.keys():
                     st.session_state.eeg_data[key] = data.get(key, 0.0)
 
+                # Automatically predict when new data is fetched
+                input_data = list(st.session_state.eeg_data.values())
+                prediction = risk_potability_prediction(input_data)
+                st.session_state.prediction = (
+                    'The Patient is affected by an Epileptic Seizure.' if prediction == 0
+                    else 'The Patient is not affected by an Epileptic Seizure.'
+                )
+
                 # Flag that new data is available
                 st.session_state.new_data_available = True
-                await asyncio.sleep(1)  # Prevent high-frequency requests
+
+                # Wait for 10 seconds before fetching the next data
+                await asyncio.sleep(10)  # Adjust for 10-second interval
 
     except Exception as e:
         st.error(f"Error occurred while connecting to WebSocket: {e}")
+
+def start_fetching_data():
+    """
+    Starts the fetch data in a separate thread.
+    """
+    asyncio.run(fetch_data_continuous())
 
 def main():
     """
@@ -64,27 +82,16 @@ def main():
     if st.button('Start Fetching Data'):
         if not st.session_state.fetching_data:
             st.session_state.fetching_data = True
-            asyncio.run(fetch_data_continuous())
+            # Start fetching data in a background thread
+            thread = Thread(target=start_fetching_data)
+            thread.start()
         else:
             st.warning("Already fetching data.")
 
     if st.button('Stop Fetching Data'):
         st.session_state.fetching_data = False
 
-    # Predict button to run prediction on the fetched data
-    if st.button('Predict'):
-        if st.session_state.new_data_available:
-            input_data = list(st.session_state.eeg_data.values())
-            prediction = risk_potability_prediction(input_data)
-            st.session_state.prediction = (
-                'The Patient is affected by an Epileptic Seizure.' if prediction == 0
-                else 'The Patient is not affected by an Epileptic Seizure.'
-            )
-            st.session_state.new_data_available = False
-        else:
-            st.warning("No new data available. Please start fetching data.")
-
-    # Display EEG values as adjustable input fields
+    # Display EEG values as adjustable input fields (for reference)
     st.subheader("Real-Time EEG Data (Adjustable)")
     for key in st.session_state.eeg_data:
         st.session_state.eeg_data[key] = st.number_input(key, value=st.session_state.eeg_data[key], format="%.7f")
@@ -95,4 +102,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
