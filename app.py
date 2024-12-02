@@ -20,7 +20,7 @@ async def fetch_data_continuous():
     """
     Continuously fetch data from WebSocket and update session state.
     """
-    uri = "ws://223.231.173.95:8000"
+    uri = "wss://167f-2401-4900-61bd-4a98-4c2-3a71-2634-8639.ngrok-free.app"
     try:
         async with websockets.connect(uri) as websocket:
             while st.session_state.fetching_data:
