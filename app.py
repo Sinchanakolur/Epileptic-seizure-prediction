@@ -4,8 +4,6 @@ import numpy as np
 import websockets
 import json
 import asyncio
-from threading import Thread
-import time
 
 # Load the trained model
 model = pickle.load(open('EE_model.pkl', 'rb'))
@@ -20,20 +18,20 @@ def risk_potability_prediction(input_data):
 
 async def fetch_data_continuous():
     """
-    Continuously fetch data from WebSocket, update session state, and make predictions.
+    Continuously fetch data from WebSocket and update session state.
     """
     uri = "wss://167f-2401-4900-61bd-4a98-4c2-3a71-2634-8639.ngrok-free.app"
     try:
         async with websockets.connect(uri) as websocket:
             while st.session_state.fetching_data:
-                data = await websocket.recv()
+                data = await websocket.recv()  # Receive data from WebSocket
                 data = json.loads(data)  # Parse the JSON data
 
-                # Update session state EEG data with the latest values
+                # Update session state EEG data if new data is fetched
                 for key in st.session_state.eeg_data.keys():
                     st.session_state.eeg_data[key] = data.get(key, 0.0)
 
-                # Automatically predict when new data is fetched
+                # Predict with new data
                 input_data = list(st.session_state.eeg_data.values())
                 prediction = risk_potability_prediction(input_data)
                 st.session_state.prediction = (
@@ -41,26 +39,12 @@ async def fetch_data_continuous():
                     else 'The Patient is not affected by an Epileptic Seizure.'
                 )
 
-                # Flag that new data is available
-                st.session_state.new_data_available = True
+                # Show the prediction in the UI
+                st.write(f"Prediction: {st.session_state.prediction}")
 
-                # Wait for 10 seconds before fetching the next data
-                await asyncio.sleep(5)  # Adjust for 10-second interval
-
-    except websockets.exceptions.ConnectionClosed as e:
-        st.error(f"WebSocket connection closed unexpectedly: {e}")
-        # Retry connection (reconnect mechanism)
-        await asyncio.sleep(5)  # Wait a bit before retrying
-        await fetch_data_continuous()  # Retry connection
-
+                await asyncio.sleep(10)  # Wait for the next batch of data (every 10 seconds)
     except Exception as e:
         st.error(f"Error occurred while connecting to WebSocket: {e}")
-
-def start_fetching_data():
-    """
-    Starts the fetch data in a separate thread.
-    """
-    asyncio.run(fetch_data_continuous())
 
 def main():
     """
@@ -81,23 +65,16 @@ def main():
         st.session_state.prediction = ""
     if 'fetching_data' not in st.session_state:
         st.session_state.fetching_data = False
-    if 'new_data_available' not in st.session_state:
-        st.session_state.new_data_available = False
 
-    # Start and Stop buttons for fetching data
+    # Buttons to start and stop fetching data
     if st.button('Start Fetching Data'):
-        if not st.session_state.fetching_data:
-            st.session_state.fetching_data = True
-            # Start fetching data in a background thread
-            thread = Thread(target=start_fetching_data)
-            thread.start()
-        else:
-            st.warning("Already fetching data.")
+        st.session_state.fetching_data = True
+        asyncio.run(fetch_data_continuous())
 
     if st.button('Stop Fetching Data'):
         st.session_state.fetching_data = False
 
-    # Display EEG values as adjustable input fields (for reference)
+    # Display EEG values as adjustable input fields
     st.subheader("Real-Time EEG Data (Adjustable)")
     for key in st.session_state.eeg_data:
         st.session_state.eeg_data[key] = st.number_input(key, value=st.session_state.eeg_data[key], format="%.7f")
@@ -108,3 +85,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
