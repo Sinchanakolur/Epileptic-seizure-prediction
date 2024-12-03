@@ -16,18 +16,17 @@ def risk_potability_prediction(input_data):
     prediction = model.predict(input_as_array)[0]  # Predict the outcome
     return prediction
 
-async def fetch_data_continuous():
+async def fetch_and_predict(uri):
     """
-    Continuously fetch data from WebSocket and update session state.
+    Fetch data from the WebSocket continuously and make predictions in real-time.
     """
-    uri = "wss://167f-2401-4900-61bd-4a98-4c2-3a71-2634-8639.ngrok-free.app"
     try:
         async with websockets.connect(uri) as websocket:
-            while st.session_state.fetching_data:
+            while True:  # Keep the connection open
                 data = await websocket.recv()  # Receive data from WebSocket
                 data = json.loads(data)  # Parse the JSON data
 
-                # Update session state EEG data if new data is fetched
+                # Update EEG data in session state
                 for key in st.session_state.eeg_data.keys():
                     st.session_state.eeg_data[key] = data.get(key, 0.0)
 
@@ -35,28 +34,55 @@ async def fetch_data_continuous():
                 input_data = list(st.session_state.eeg_data.values())
                 prediction = risk_potability_prediction(input_data)
                 result = (
-                    f"Prediction: The Patient is affected by an Epileptic Seizure."
+                    f"**<span style='color:#FF4D4D;'>The Patient is affected by an Epileptic Seizure.</span>**"
                     if prediction == 0
-                    else "Prediction: The Patient is not affected by an Epileptic Seizure."
+                    else "**The Patient is not affected by an Epileptic Seizure.**"
                 )
 
-                # Add prediction to results list
+                # Append the prediction result to session state
                 st.session_state.prediction_results.append(result)
 
+                # Render the updated results
+                st.experimental_rerun()
+
                 await asyncio.sleep(10)  # Wait for the next batch of data (every 10 seconds)
+
     except Exception as e:
-        st.error(f"Error occurred while connecting to WebSocket: {e}")
+        st.error(f"WebSocket connection error: {e}")
 
 def main():
     """
-    Main function to run the Streamlit app with EEG seizure prediction and WebSocket connection.
+    Main function to run the Streamlit app with real-time EEG seizure prediction.
     """
     # Streamlit page setup
-    st.set_page_config(page_title='EEG Seizure Prediction', layout="wide")
+    st.set_page_config(
+        page_title='EEG Seizure Prediction',
+        page_icon="🧠",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
     st.title('🧠 EEG-Based Epileptic Seizure Prediction')
-    st.write("This app predicts whether a patient is experiencing an epileptic seizure based on EEG data.")
+    st.markdown(
+        """
+        <p style="font-size:18px;">
+        This app predicts whether a patient is experiencing an epileptic seizure based on EEG data. 
+        It fetches real-time EEG data, processes it, and provides a prediction.
+        </p>
+        """, unsafe_allow_html=True
+    )
 
-    # Initialize session state for EEG data and prediction results if not already set
+    # Sidebar for Navigation
+    st.sidebar.header("Navigation")
+    st.sidebar.markdown(
+        """
+        <ul style="list-style-type:circle; font-size:15px;">
+            <li><a href="#real-time-eeg-data" style="text-decoration:none;">Real-Time EEG Data</a></li>
+            <li><a href="#prediction-results" style="text-decoration:none;">Prediction Results</a></li>
+        </ul>
+        """, unsafe_allow_html=True
+    )
+
+    # Initialize session state variables
     if 'eeg_data' not in st.session_state:
         st.session_state.eeg_data = {
             "# FP1-F7": 0.0, "C3-P3": 0.0, "P3-O1": 0.0, "P4-O2": 0.0,
@@ -67,39 +93,55 @@ def main():
     if 'fetching_data' not in st.session_state:
         st.session_state.fetching_data = False
 
-    # Layout for data and actions
-    col1, col2 = st.columns([2, 1])
-
-    # Column 1: EEG Data and Controls
-    with col1:
-        st.subheader("Real-Time EEG Data")
-        st.write("Adjust EEG values manually or wait for live data.")
-        for key in st.session_state.eeg_data:
+    # Layout for EEG data
+    st.subheader("Real-Time EEG Data (Adjustable)")
+    st.markdown(
+        """
+        <p style="font-size:15px;">
+        You can adjust the EEG values manually for testing or allow real-time data fetching to update them automatically.
+        </p>
+        """, unsafe_allow_html=True
+    )
+    cols = st.columns(4)  # Layout the input fields into columns
+    for i, key in enumerate(st.session_state.eeg_data):
+        with cols[i % 4]:
             st.session_state.eeg_data[key] = st.number_input(
                 label=key, 
                 value=st.session_state.eeg_data[key], 
-                format="%.7f"
+                format="%.7f",
+                help=f"Current value for {key}"
             )
 
-        # Buttons to start and stop fetching data
-        if st.button('▶️ Start Fetching Data', key="start_fetch"):
+    # Start/Stop Data Fetching
+    uri = "wss://167f-2401-4900-61bd-4a98-4c2-3a71-2634-8639.ngrok-free.app"
+
+    st.markdown("---")
+    if st.session_state.fetching_data:
+        st.button("Stop Fetching Data", on_click=lambda: setattr(st.session_state, 'fetching_data', False))
+        st.info("Fetching and predicting in real-time...")
+    else:
+        if st.button("Start Fetching and Predicting"):
             st.session_state.fetching_data = True
-            asyncio.run(fetch_data_continuous())
+            asyncio.run(fetch_and_predict(uri))
 
-        if st.button('⏹️ Stop Fetching Data', key="stop_fetch"):
-            st.session_state.fetching_data = False
-
-    # Column 2: Prediction Results
-    with col2:
-        st.subheader("Predictions")
-        if st.session_state.prediction_results:
-            st.write("Results of the predictions will appear here:")
-            for result in reversed(st.session_state.prediction_results):
-                st.info(result)
-        else:
-            st.write("No predictions yet. Start fetching data or adjust EEG values manually.")
+    # Display Prediction Results
+    st.subheader("Prediction Results")
+    st.markdown(
+        """
+        <p style="font-size:15px;">
+        Below are the predictions based on the received EEG data. 
+        The results are updated in real-time as new data is fetched.
+        </p>
+        """, unsafe_allow_html=True
+    )
+    if st.session_state.prediction_results:
+        for result in reversed(st.session_state.prediction_results):
+            st.markdown(f"{result}", unsafe_allow_html=True)
+    else:
+        st.info("No predictions yet. Start fetching data to see results.")
 
 if __name__ == '__main__':
     main()
+
 
 
