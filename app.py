@@ -34,13 +34,14 @@ async def fetch_data_continuous():
                 # Predict with new data
                 input_data = list(st.session_state.eeg_data.values())
                 prediction = risk_potability_prediction(input_data)
-                st.session_state.prediction = (
-                    'The Patient is affected by an Epileptic Seizure.' if prediction == 0
-                    else 'The Patient is not affected by an Epileptic Seizure.'
+                result = (
+                    f"Prediction: The Patient is affected by an Epileptic Seizure."
+                    if prediction == 0
+                    else "Prediction: The Patient is not affected by an Epileptic Seizure."
                 )
 
-                # Show the prediction in the UI
-                st.write(f"Prediction: {st.session_state.prediction}")
+                # Add prediction to results list
+                st.session_state.prediction_results.append(result)
 
                 await asyncio.sleep(10)  # Wait for the next batch of data (every 10 seconds)
     except Exception as e:
@@ -51,38 +52,54 @@ def main():
     Main function to run the Streamlit app with EEG seizure prediction and WebSocket connection.
     """
     # Streamlit page setup
-    st.set_page_config(page_title='EEG - Based Epileptic Seizure Prediction')
-    st.title('EEG - Based Epileptic Seizure Prediction')
-    st.write('This app predicts whether a patient is experiencing an epileptic seizure based on EEG data.')
+    st.set_page_config(page_title='EEG Seizure Prediction', layout="wide")
+    st.title('🧠 EEG-Based Epileptic Seizure Prediction')
+    st.write("This app predicts whether a patient is experiencing an epileptic seizure based on EEG data.")
 
-    # Initialize session state for EEG data and prediction output if not already set
+    # Initialize session state for EEG data and prediction results if not already set
     if 'eeg_data' not in st.session_state:
         st.session_state.eeg_data = {
             "# FP1-F7": 0.0, "C3-P3": 0.0, "P3-O1": 0.0, "P4-O2": 0.0,
             "P7-O1": 0.0, "P7-T7": 0.0, "T8-P8-0": 0.0, "T8-P8-1": 0.0
         }
-    if 'prediction' not in st.session_state:
-        st.session_state.prediction = ""
+    if 'prediction_results' not in st.session_state:
+        st.session_state.prediction_results = []
     if 'fetching_data' not in st.session_state:
         st.session_state.fetching_data = False
 
-    # Buttons to start and stop fetching data
-    if st.button('Start Fetching Data'):
-        st.session_state.fetching_data = True
-        asyncio.run(fetch_data_continuous())
+    # Layout for data and actions
+    col1, col2 = st.columns([2, 1])
 
-    if st.button('Stop Fetching Data'):
-        st.session_state.fetching_data = False
+    # Column 1: EEG Data and Controls
+    with col1:
+        st.subheader("Real-Time EEG Data")
+        st.write("Adjust EEG values manually or wait for live data.")
+        for key in st.session_state.eeg_data:
+            st.session_state.eeg_data[key] = st.number_input(
+                label=key, 
+                value=st.session_state.eeg_data[key], 
+                format="%.7f"
+            )
 
-    # Display EEG values as adjustable input fields
-    st.subheader("Real-Time EEG Data (Adjustable)")
-    for key in st.session_state.eeg_data:
-        st.session_state.eeg_data[key] = st.number_input(key, value=st.session_state.eeg_data[key], format="%.7f")
+        # Buttons to start and stop fetching data
+        if st.button('▶️ Start Fetching Data', key="start_fetch"):
+            st.session_state.fetching_data = True
+            asyncio.run(fetch_data_continuous())
 
-    # Show prediction result
-    st.subheader('Prediction Result')
-    st.write(st.session_state.prediction)
+        if st.button('⏹️ Stop Fetching Data', key="stop_fetch"):
+            st.session_state.fetching_data = False
+
+    # Column 2: Prediction Results
+    with col2:
+        st.subheader("Predictions")
+        if st.session_state.prediction_results:
+            st.write("Results of the predictions will appear here:")
+            for result in reversed(st.session_state.prediction_results):
+                st.info(result)
+        else:
+            st.write("No predictions yet. Start fetching data or adjust EEG values manually.")
 
 if __name__ == '__main__':
     main()
+
 
