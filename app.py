@@ -22,7 +22,7 @@ async def fetch_and_predict(uri):
     """
     try:
         async with websockets.connect(uri) as websocket:
-            while True:  # Keep the connection open
+            while st.session_state.fetching_data:
                 data = await websocket.recv()  # Receive data from WebSocket
                 data = json.loads(data)  # Parse the JSON data
 
@@ -40,13 +40,9 @@ async def fetch_and_predict(uri):
                 )
 
                 # Append the prediction result to session state
-                st.session_state.prediction_results.append(result)
+                st.session_state.prediction_results.insert(0, result)  # Add to the top of the list
 
-                # Render the updated results
-                st.experimental_rerun()
-
-                await asyncio.sleep(10)  # Wait for the next batch of data (every 10 seconds)
-
+                await asyncio.sleep(10)  # Wait for the next batch of data
     except Exception as e:
         st.error(f"WebSocket connection error: {e}")
 
@@ -68,17 +64,6 @@ def main():
         This app predicts whether a patient is experiencing an epileptic seizure based on EEG data. 
         It fetches real-time EEG data, processes it, and provides a prediction.
         </p>
-        """, unsafe_allow_html=True
-    )
-
-    # Sidebar for Navigation
-    st.sidebar.header("Navigation")
-    st.sidebar.markdown(
-        """
-        <ul style="list-style-type:circle; font-size:15px;">
-            <li><a href="#real-time-eeg-data" style="text-decoration:none;">Real-Time EEG Data</a></li>
-            <li><a href="#prediction-results" style="text-decoration:none;">Prediction Results</a></li>
-        </ul>
         """, unsafe_allow_html=True
     )
 
@@ -117,8 +102,8 @@ def main():
 
     st.markdown("---")
     if st.session_state.fetching_data:
-        st.button("Stop Fetching Data", on_click=lambda: setattr(st.session_state, 'fetching_data', False))
-        st.info("Fetching and predicting in real-time...")
+        if st.button("Stop Fetching Data"):
+            st.session_state.fetching_data = False
     else:
         if st.button("Start Fetching and Predicting"):
             st.session_state.fetching_data = True
@@ -135,13 +120,14 @@ def main():
         """, unsafe_allow_html=True
     )
     if st.session_state.prediction_results:
-        for result in reversed(st.session_state.prediction_results):
+        for result in st.session_state.prediction_results[:10]:  # Show the latest 10 predictions
             st.markdown(f"{result}", unsafe_allow_html=True)
     else:
         st.info("No predictions yet. Start fetching data to see results.")
 
 if __name__ == '__main__':
     main()
+
 
 
 
