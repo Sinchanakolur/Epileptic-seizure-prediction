@@ -22,15 +22,19 @@ async def fetch_and_predict(uri):
     """
     try:
         async with websockets.connect(uri) as websocket:
-            while st.session_state.fetching_data:
-                data = await websocket.recv()  # Receive data from WebSocket
+            while True:
+                if not st.session_state.fetching_data:
+                    break
+
+                # Receive data from WebSocket
+                data = await websocket.recv()  
                 data = json.loads(data)  # Parse the JSON data
 
                 # Update EEG data in session state
                 for key in st.session_state.eeg_data.keys():
                     st.session_state.eeg_data[key] = data.get(key, 0.0)
 
-                # Predict with new data
+                # Perform prediction
                 input_data = list(st.session_state.eeg_data.values())
                 prediction = risk_potability_prediction(input_data)
                 result = (
@@ -42,9 +46,16 @@ async def fetch_and_predict(uri):
                 # Append the prediction result to session state
                 st.session_state.prediction_results.insert(0, result)  # Add to the top of the list
 
-                await asyncio.sleep(10)  # Wait for the next batch of data
+                # Sleep for 10 seconds before fetching new data
+                await asyncio.sleep(10)
     except Exception as e:
         st.error(f"WebSocket connection error: {e}")
+
+def start_background_task(uri):
+    """
+    Start the background task to fetch and predict data.
+    """
+    asyncio.run(fetch_and_predict(uri))
 
 def main():
     """
@@ -107,7 +118,8 @@ def main():
     else:
         if st.button("Start Fetching and Predicting"):
             st.session_state.fetching_data = True
-            asyncio.run(fetch_and_predict(uri))
+            st.write("Fetching and predicting data in real-time...")
+            asyncio.create_task(start_background_task(uri))  # Start the async task
 
     # Display Prediction Results
     st.subheader("Prediction Results")
@@ -127,6 +139,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
