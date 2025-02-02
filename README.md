@@ -42,5 +42,5 @@ The model successfully differentiates between seizure and non-seizure EEG signal
 This project is open-source and available for further development.
 
 👨‍💻 Author
-🔗 GitHub Profile: Sinchanakolur
+🔗 GitHub Profile: https://github.com/Sinchanakolur
 
